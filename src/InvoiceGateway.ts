@@ -27,17 +27,17 @@ import {
 } from "./interfaces/IssueInvoice";
 
 interface InvoiceGatewayConstructorOptions {
-  merchantId: string;
-  hashKey: string;
-  hashIv: string;
-  development?: boolean;
+  MERCHANT_ID: string;
+  HASH_KEY: string;
+  HASH_IV: string;
+  DEVELOPMENT?: boolean;
 }
 
-const STAGING_GATEWAY_PARAMS = {
-  merchantId: "2000132",
-  hashKey: "ejCk326UnaZWKisg",
-  hashIv: "q9jcZX8Ib9LM8wYk",
-  development: true
+const STAGING_GATEWAY_PARAMS: InvoiceGatewayConstructorOptions = {
+  MERCHANT_ID: "2000132",
+  HASH_KEY: "ejCk326UnaZWKisg",
+  HASH_IV: "q9jcZX8Ib9LM8wYk",
+  DEVELOPMENT: true
 };
 
 function getEnvironmentVariableOrRaise(name: string): string | never {
@@ -54,10 +54,15 @@ export class InvoiceGateway {
   HASH_KEY: string;
   HASH_IV: string;
 
-  static async genericRequest(endpoint: string, payload: any) {
+  constructor(args: Partial<InvoiceGatewayConstructorOptions> = {}) {
+    const opts = InvoiceGateway.normalizeArgs(args);
+    Object.assign(this, opts);
+  }
+
+  static async genericRequest(endpoint: string, payload: any, args: Partial<InvoiceGatewayConstructorOptions> = {}) {
     const ts = Math.floor(Date.now() / 1000);
     const id = uuid();
-    const { MERCHANT_ID, HOST } = InvoiceGateway.normalizeArgs();
+    const { MERCHANT_ID, HOST } = InvoiceGateway.normalizeArgs(args);
     const mergedPayload = {
       ...payload,
       MERCHANT_ID
@@ -84,20 +89,23 @@ export class InvoiceGateway {
     return InvoiceCarrierTypeToCode[type];
   }
 
+  /*
+   * Fetch invoice gateway configuration from environment variables or use staging gateway by default.
+   */
   static normalizeArgs(args: Partial<InvoiceGatewayConstructorOptions> = {}) {
-    const development = args.development ?? JSON.parse(process.env.ECPAY_INVOICE_STAGING ?? "true");
+    const development = args.DEVELOPMENT ?? JSON.parse(process.env.ECPAY_INVOICE_STAGING ?? "true");
     const HOST = development
       ? "https://einvoice-stage.ecpay.com.tw/B2CInvoice"
       : "https://einvoice.ecpay.com.tw/B2CInvoice";
     const MERCHANT_ID = development
-      ? STAGING_GATEWAY_PARAMS.merchantId
-      : args.merchantId ?? getEnvironmentVariableOrRaise("ECPAY_INVOICE_MERCHANT_ID");
+      ? STAGING_GATEWAY_PARAMS.MERCHANT_ID
+      : args.MERCHANT_ID ?? getEnvironmentVariableOrRaise("ECPAY_INVOICE_MERCHANT_ID");
     const HASH_KEY = development
-      ? STAGING_GATEWAY_PARAMS.hashKey
-      : args.hashKey ?? getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_KEY");
+      ? STAGING_GATEWAY_PARAMS.HASH_KEY
+      : args.HASH_KEY ?? getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_KEY");
     const HASH_IV = development
-      ? STAGING_GATEWAY_PARAMS.hashIv
-      : args.hashIv ?? getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_IV");
+      ? STAGING_GATEWAY_PARAMS.HASH_IV
+      : args.HASH_IV ?? getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_IV");
 
     return {
       HOST,
@@ -105,11 +113,6 @@ export class InvoiceGateway {
       HASH_IV,
       HASH_KEY
     };
-  }
-
-  constructor(args: Partial<InvoiceGatewayConstructorOptions> = {}) {
-    const opts = InvoiceGateway.normalizeArgs(args);
-    Object.assign(this, opts);
   }
 
   static encrypt(data: any): string {

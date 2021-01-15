@@ -1,17 +1,18 @@
 import InvoiceCarrierType from "./enums/InvoiceCarrierType";
 import { AllowanceInvoiceArguments, InvalidInvoiceArguments, IssueInvoiceResponseAllowanceResponse, IssueInvoiceResponse, InvalidAllowanceArguments, IssueInvoiceArguments } from "./interfaces/IssueInvoice";
 interface InvoiceGatewayConstructorOptions {
-    merchantId: string;
-    hashKey: string;
-    hashIv: string;
-    development?: boolean;
+    MERCHANT_ID: string;
+    HASH_KEY: string;
+    HASH_IV: string;
+    DEVELOPMENT?: boolean;
 }
 export declare class InvoiceGateway {
     HOST: string;
     MERCHANT_ID: string;
     HASH_KEY: string;
     HASH_IV: string;
-    static genericRequest(endpoint: string, payload: any): Promise<any>;
+    constructor(args?: Partial<InvoiceGatewayConstructorOptions>);
+    static genericRequest(endpoint: string, payload: any, args?: Partial<InvoiceGatewayConstructorOptions>): Promise<any>;
     static getCarrierTypeCode(type: InvoiceCarrierType): string;
     static normalizeArgs(args?: Partial<InvoiceGatewayConstructorOptions>): {
         HOST: string;
@@ -19,7 +20,6 @@ export declare class InvoiceGateway {
         HASH_IV: string;
         HASH_KEY: string;
     };
-    constructor(args?: Partial<InvoiceGatewayConstructorOptions>);
     static encrypt(data: any): string;
     encrypt(data: any): string;
     static decrypt(encryptedData: string): any;
