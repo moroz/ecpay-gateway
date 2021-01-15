@@ -5,4 +5,5 @@ export declare enum InvoiceCarrierType {
     NATURAL = 3,
     MOBILE = 4
 }
+export declare const InvoiceCarrierTypeToCode: Record<InvoiceCarrierType, string>;
 export default InvoiceCarrierType;

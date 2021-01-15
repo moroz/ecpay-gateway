@@ -11,13 +11,22 @@ export declare class InvoiceGateway {
     MERCHANT_ID: string;
     HASH_KEY: string;
     HASH_IV: string;
+    static genericRequest(endpoint: string, payload: any): Promise<any>;
     static getCarrierTypeCode(type: InvoiceCarrierType): string;
-    constructor({ merchantId, hashKey, hashIv, development }?: InvoiceGatewayConstructorOptions);
+    static normalizeArgs(args?: Partial<InvoiceGatewayConstructorOptions>): {
+        HOST: string;
+        MERCHANT_ID: string;
+        HASH_IV: string;
+        HASH_KEY: string;
+    };
+    constructor(args?: Partial<InvoiceGatewayConstructorOptions>);
+    static encrypt(data: any): string;
     encrypt(data: any): string;
+    static decrypt(encryptedData: string): any;
     decrypt(encryptedData: string): any;
     getValidCarrierNumber(type: InvoiceCarrierType, number: string | null | undefined): Promise<string> | string;
     getValidLoveCode(loveCode: string | null | undefined): Promise<string>;
-    getValidMobileCarrierNumber(number: string): Promise<string>;
+    static normalizeMobileCarrierBarcode(BarCode: string): Promise<string>;
     sendNotification(invoiceNumber: string, email: string): Promise<boolean>;
     invalidAllowance({ invoiceNumber, allowanceNumber, reason }: InvalidAllowanceArguments): Promise<boolean>;
     invalidInvoice({ invoiceNumber, invoiceDate, reason }: InvalidInvoiceArguments): Promise<true>;

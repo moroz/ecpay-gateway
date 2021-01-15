@@ -2,43 +2,93 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InvoiceGateway = void 0;
 const tslib_1 = require("tslib");
-const InvoiceCarrierType_1 = tslib_1.__importDefault(require("./enums/InvoiceCarrierType"));
+const InvoiceCarrierType_1 = tslib_1.__importStar(require("./enums/InvoiceCarrierType"));
 const axios_1 = tslib_1.__importDefault(require("axios"));
 const uuid_1 = require("uuid");
 const Payment_1 = require("./errors/Payment");
 const crypto_1 = tslib_1.__importDefault(require("crypto"));
+const STAGING_GATEWAY_PARAMS = {
+    merchantId: "2000132",
+    hashKey: "ejCk326UnaZWKisg",
+    hashIv: "q9jcZX8Ib9LM8wYk",
+    development: true
+};
+function getEnvironmentVariableOrRaise(name) {
+    const result = process.env[name];
+    if (typeof result === "undefined" || result === null || result === "") {
+        throw new Error(`Environment variable ${name} is not set!`);
+    }
+    return result;
+}
 class InvoiceGateway {
-    constructor({ merchantId, hashKey, hashIv, development } = {
-        merchantId: "2000132",
-        hashKey: "ejCk326UnaZWKisg",
-        hashIv: "q9jcZX8Ib9LM8wYk",
-        development: true
-    }) {
-        this.HOST = development
-            ? "https://einvoice-stage.ecpay.com.tw/B2CInvoice"
-            : "https://einvoice.ecpay.com.tw/B2CInvoice";
-        this.MERCHANT_ID = merchantId;
-        this.HASH_KEY = hashKey;
-        this.HASH_IV = hashIv;
+    constructor(args = {}) {
+        const opts = InvoiceGateway.normalizeArgs(args);
+        Object.assign(this, opts);
+    }
+    static genericRequest(endpoint, payload) {
+        return tslib_1.__awaiter(this, void 0, void 0, function* () {
+            const ts = Math.floor(Date.now() / 1000);
+            const id = uuid_1.v4();
+            const { MERCHANT_ID, HOST } = InvoiceGateway.normalizeArgs();
+            const mergedPayload = Object.assign(Object.assign({}, payload), { MERCHANT_ID });
+            const { data: { Data } } = yield axios_1.default({
+                method: "post",
+                url: `${HOST}${endpoint}`,
+                data: {
+                    MerchantID: MERCHANT_ID,
+                    RqHeader: {
+                        Timestamp: ts,
+                        RqId: id,
+                        Revision: "3.0.0"
+                    },
+                    Data: InvoiceGateway.encrypt(mergedPayload)
+                }
+            });
+            return Data;
+        });
     }
     static getCarrierTypeCode(type) {
-        switch (type) {
-            case InvoiceCarrierType_1.default.GERRN_WORLD:
-                return "1";
-            case InvoiceCarrierType_1.default.NATURAL:
-                return "2";
-            case InvoiceCarrierType_1.default.MOBILE:
-                return "3";
-            case InvoiceCarrierType_1.default.LOVE_CODE:
-            default:
-                return "";
-        }
+        return InvoiceCarrierType_1.InvoiceCarrierTypeToCode[type];
+    }
+    static normalizeArgs(args = {}) {
+        var _a, _b, _c, _d, _e;
+        const development = (_a = args.development) !== null && _a !== void 0 ? _a : JSON.parse((_b = process.env.ECPAY_INVOICE_STAGING) !== null && _b !== void 0 ? _b : "true");
+        const HOST = development
+            ? "https://einvoice-stage.ecpay.com.tw/B2CInvoice"
+            : "https://einvoice.ecpay.com.tw/B2CInvoice";
+        const MERCHANT_ID = development
+            ? STAGING_GATEWAY_PARAMS.merchantId
+            : (_c = args.merchantId) !== null && _c !== void 0 ? _c : getEnvironmentVariableOrRaise("ECPAY_INVOICE_MERCHANT_ID");
+        const HASH_KEY = development
+            ? STAGING_GATEWAY_PARAMS.hashKey
+            : (_d = args.hashKey) !== null && _d !== void 0 ? _d : getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_KEY");
+        const HASH_IV = development
+            ? STAGING_GATEWAY_PARAMS.hashIv
+            : (_e = args.hashIv) !== null && _e !== void 0 ? _e : getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_IV");
+        return {
+            HOST,
+            MERCHANT_ID,
+            HASH_IV,
+            HASH_KEY
+        };
+    }
+    static encrypt(data) {
+        const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs();
+        const encodedData = encodeURIComponent(JSON.stringify(data));
+        const cipher = crypto_1.default.createCipheriv("aes-128-cbc", HASH_KEY, HASH_IV);
+        cipher.setAutoPadding(true);
+        return [cipher.update(encodedData, "utf8", "base64"), cipher.final("base64")].join("");
     }
     encrypt(data) {
         const encodedData = encodeURIComponent(JSON.stringify(data));
         const cipher = crypto_1.default.createCipheriv("aes-128-cbc", this.HASH_KEY, this.HASH_IV);
         cipher.setAutoPadding(true);
         return [cipher.update(encodedData, "utf8", "base64"), cipher.final("base64")].join("");
+    }
+    static decrypt(encryptedData) {
+        const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs();
+        const decipher = crypto_1.default.createDecipheriv("aes-128-cbc", HASH_KEY, HASH_IV);
+        return JSON.parse(decodeURIComponent([decipher.update(encryptedData, "base64", "utf8"), decipher.final("utf8")].join("")));
     }
     decrypt(encryptedData) {
         const decipher = crypto_1.default.createDecipheriv("aes-128-cbc", this.HASH_KEY, this.HASH_IV);
@@ -49,7 +99,7 @@ class InvoiceGateway {
             case InvoiceCarrierType_1.default.MOBILE:
                 if (!number || !/^\/[0-9A-Z+-.]{7}$/.test(number))
                     throw new Payment_1.InvalidMobileCarrierNumberType();
-                return this.getValidMobileCarrierNumber(number);
+                return InvoiceGateway.normalizeMobileCarrierBarcode(number);
             case InvoiceCarrierType_1.default.NATURAL:
                 if (!number || !/^[A-Z]{2}\d{14}$/.test(number))
                     throw new Payment_1.InvalidNaturalCarrierNumberType();
@@ -95,31 +145,17 @@ class InvoiceGateway {
             }
         });
     }
-    getValidMobileCarrierNumber(number) {
+    static normalizeMobileCarrierBarcode(BarCode) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
-            const ts = Math.floor(Date.now() / 1000);
-            const id = uuid_1.v4();
-            const { data: { Data } } = yield axios_1.default({
-                method: "post",
-                url: `${this.HOST}/CheckBarcode`,
-                data: {
-                    MerchantID: this.MERCHANT_ID,
-                    RqHeader: {
-                        Timestamp: ts,
-                        RqId: id,
-                        Revision: "3.0.0"
-                    },
-                    Data: this.encrypt({
-                        MerchantID: this.MERCHANT_ID,
-                        BarCode: number
-                    })
-                }
+            BarCode = BarCode.trim();
+            const data = yield InvoiceGateway.genericRequest("/CheckBarcode", {
+                BarCode
             });
-            const { RtnCode, IsExist } = this.decrypt(Data);
+            const { RtnCode, IsExist } = InvoiceGateway.decrypt(data);
             switch (RtnCode) {
                 case 1:
                     if (IsExist === "Y")
-                        return number;
+                        return BarCode;
                     throw new Payment_1.InvalidMobileBarcode();
                 case 100000100:
                     throw new Payment_1.MobileBarcodeVerificationSystemInMaintenance();

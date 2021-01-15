@@ -1,4 +1,4 @@
-import InvoiceCarrierType from "./enums/InvoiceCarrierType";
+import InvoiceCarrierType, { InvoiceCarrierTypeToCode } from "./enums/InvoiceCarrierType";
 import axios from "axios";
 import { v4 as uuid } from "uuid";
 import {
@@ -32,43 +32,93 @@ interface InvoiceGatewayConstructorOptions {
   hashIv: string;
   development?: boolean;
 }
+
+const STAGING_GATEWAY_PARAMS = {
+  merchantId: "2000132",
+  hashKey: "ejCk326UnaZWKisg",
+  hashIv: "q9jcZX8Ib9LM8wYk",
+  development: true
+};
+
+function getEnvironmentVariableOrRaise(name: string): string | never {
+  const result = process.env[name];
+  if (typeof result === "undefined" || result === null || result === "") {
+    throw new Error(`Environment variable ${name} is not set!`);
+  }
+  return result;
+}
+
 export class InvoiceGateway {
   HOST: string;
   MERCHANT_ID: string;
   HASH_KEY: string;
   HASH_IV: string;
 
-  static getCarrierTypeCode(type: InvoiceCarrierType): string {
-    switch (type) {
-      case InvoiceCarrierType.GERRN_WORLD:
-        return "1";
-
-      case InvoiceCarrierType.NATURAL:
-        return "2";
-
-      case InvoiceCarrierType.MOBILE:
-        return "3";
-
-      case InvoiceCarrierType.LOVE_CODE:
-      default:
-        return "";
-    }
+  static async genericRequest(endpoint: string, payload: any) {
+    const ts = Math.floor(Date.now() / 1000);
+    const id = uuid();
+    const { MERCHANT_ID, HOST } = InvoiceGateway.normalizeArgs();
+    const mergedPayload = {
+      ...payload,
+      MERCHANT_ID
+    };
+    const {
+      data: { Data }
+    } = await axios({
+      method: "post",
+      url: `${HOST}${endpoint}`,
+      data: {
+        MerchantID: MERCHANT_ID,
+        RqHeader: {
+          Timestamp: ts,
+          RqId: id,
+          Revision: "3.0.0"
+        },
+        Data: InvoiceGateway.encrypt(mergedPayload)
+      }
+    });
+    return Data;
   }
 
-  constructor(
-    { merchantId, hashKey, hashIv, development }: InvoiceGatewayConstructorOptions = {
-      merchantId: "2000132",
-      hashKey: "ejCk326UnaZWKisg",
-      hashIv: "q9jcZX8Ib9LM8wYk",
-      development: true
-    }
-  ) {
-    this.HOST = development
+  static getCarrierTypeCode(type: InvoiceCarrierType): string {
+    return InvoiceCarrierTypeToCode[type];
+  }
+
+  static normalizeArgs(args: Partial<InvoiceGatewayConstructorOptions> = {}) {
+    const development = args.development ?? JSON.parse(process.env.ECPAY_INVOICE_STAGING ?? "true");
+    const HOST = development
       ? "https://einvoice-stage.ecpay.com.tw/B2CInvoice"
       : "https://einvoice.ecpay.com.tw/B2CInvoice";
-    this.MERCHANT_ID = merchantId;
-    this.HASH_KEY = hashKey;
-    this.HASH_IV = hashIv;
+    const MERCHANT_ID = development
+      ? STAGING_GATEWAY_PARAMS.merchantId
+      : args.merchantId ?? getEnvironmentVariableOrRaise("ECPAY_INVOICE_MERCHANT_ID");
+    const HASH_KEY = development
+      ? STAGING_GATEWAY_PARAMS.hashKey
+      : args.hashKey ?? getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_KEY");
+    const HASH_IV = development
+      ? STAGING_GATEWAY_PARAMS.hashIv
+      : args.hashIv ?? getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_IV");
+
+    return {
+      HOST,
+      MERCHANT_ID,
+      HASH_IV,
+      HASH_KEY
+    };
+  }
+
+  constructor(args: Partial<InvoiceGatewayConstructorOptions> = {}) {
+    const opts = InvoiceGateway.normalizeArgs(args);
+    Object.assign(this, opts);
+  }
+
+  static encrypt(data: any): string {
+    const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs();
+    const encodedData = encodeURIComponent(JSON.stringify(data));
+    const cipher = crypto.createCipheriv("aes-128-cbc", HASH_KEY!, HASH_IV!);
+    cipher.setAutoPadding(true);
+
+    return [cipher.update(encodedData, "utf8", "base64"), cipher.final("base64")].join("");
   }
 
   encrypt(data: any): string {
@@ -77,6 +127,15 @@ export class InvoiceGateway {
     cipher.setAutoPadding(true);
 
     return [cipher.update(encodedData, "utf8", "base64"), cipher.final("base64")].join("");
+  }
+
+  static decrypt(encryptedData: string): any {
+    const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs();
+    const decipher = crypto.createDecipheriv("aes-128-cbc", HASH_KEY, HASH_IV);
+
+    return JSON.parse(
+      decodeURIComponent([decipher.update(encryptedData, "base64", "utf8"), decipher.final("utf8")].join(""))
+    );
   }
 
   decrypt(encryptedData: string): any {
@@ -91,7 +150,7 @@ export class InvoiceGateway {
     switch (type) {
       case InvoiceCarrierType.MOBILE:
         if (!number || !/^\/[0-9A-Z+-.]{7}$/.test(number)) throw new InvalidMobileCarrierNumberType();
-        return this.getValidMobileCarrierNumber(number);
+        return InvoiceGateway.normalizeMobileCarrierBarcode(number);
 
       case InvoiceCarrierType.NATURAL:
         if (!number || !/^[A-Z]{2}\d{14}$/.test(number)) throw new InvalidNaturalCarrierNumberType();
@@ -145,34 +204,16 @@ export class InvoiceGateway {
     }
   }
 
-  async getValidMobileCarrierNumber(number: string): Promise<string> {
-    const ts = Math.floor(Date.now() / 1000);
-    const id = uuid();
-
-    const {
-      data: { Data }
-    } = await axios({
-      method: "post",
-      url: `${this.HOST}/CheckBarcode`,
-      data: {
-        MerchantID: this.MERCHANT_ID,
-        RqHeader: {
-          Timestamp: ts,
-          RqId: id,
-          Revision: "3.0.0"
-        },
-        Data: this.encrypt({
-          MerchantID: this.MERCHANT_ID,
-          BarCode: number
-        })
-      }
+  static async normalizeMobileCarrierBarcode(BarCode: string): Promise<string> {
+    BarCode = BarCode.trim();
+    const data = await InvoiceGateway.genericRequest("/CheckBarcode", {
+      BarCode
     });
-
-    const { RtnCode, IsExist } = this.decrypt(Data);
+    const { RtnCode, IsExist } = InvoiceGateway.decrypt(data);
 
     switch (RtnCode) {
       case 1:
-        if (IsExist === "Y") return number;
+        if (IsExist === "Y") return BarCode;
 
         throw new InvalidMobileBarcode();
 
