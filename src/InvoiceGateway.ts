@@ -207,11 +207,18 @@ export class InvoiceGateway {
     }
   }
 
-  static async normalizeMobileCarrierBarcode(BarCode: string): Promise<string> {
+  static async normalizeMobileCarrierBarcode(
+    BarCode: string,
+    args?: Partial<InvoiceGatewayConstructorOptions>
+  ): Promise<string> {
     BarCode = BarCode.trim();
-    const data = await InvoiceGateway.genericRequest("/CheckBarcode", {
-      BarCode
-    });
+    const data = await InvoiceGateway.genericRequest(
+      "/CheckBarcode",
+      {
+        BarCode
+      },
+      args
+    );
     const { RtnCode, IsExist } = InvoiceGateway.decrypt(data);
 
     switch (RtnCode) {

@@ -26,7 +26,7 @@ export declare class InvoiceGateway {
     decrypt(encryptedData: string): any;
     getValidCarrierNumber(type: InvoiceCarrierType, number: string | null | undefined): Promise<string> | string;
     getValidLoveCode(loveCode: string | null | undefined): Promise<string>;
-    static normalizeMobileCarrierBarcode(BarCode: string): Promise<string>;
+    static normalizeMobileCarrierBarcode(BarCode: string, args?: Partial<InvoiceGatewayConstructorOptions>): Promise<string>;
     sendNotification(invoiceNumber: string, email: string): Promise<boolean>;
     invalidAllowance({ invoiceNumber, allowanceNumber, reason }: InvalidAllowanceArguments): Promise<boolean>;
     invalidInvoice({ invoiceNumber, invoiceDate, reason }: InvalidInvoiceArguments): Promise<true>;

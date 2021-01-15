@@ -148,12 +148,12 @@ class InvoiceGateway {
             }
         });
     }
-    static normalizeMobileCarrierBarcode(BarCode) {
+    static normalizeMobileCarrierBarcode(BarCode, args) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             BarCode = BarCode.trim();
             const data = yield InvoiceGateway.genericRequest("/CheckBarcode", {
                 BarCode
-            });
+            }, args);
             const { RtnCode, IsExist } = InvoiceGateway.decrypt(data);
             switch (RtnCode) {
                 case 1:
