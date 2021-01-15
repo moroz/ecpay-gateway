@@ -4,7 +4,6 @@
 		"node": true
 	},
 	"extends": [
-		"eslint:recommended",
 		"plugin:prettier/recommended"
 	],
 	"plugins": [
@@ -18,8 +17,5 @@
 			"jsx": true,
 			"legacyDecorators": true
 		}
-	},
-	"rules": {
-		"prettier/prettier": [2, { "trailingComma": "es5" }]
 	}
 }
