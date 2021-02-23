@@ -10,8 +10,7 @@ const crypto_1 = tslib_1.__importDefault(require("crypto"));
 const STAGING_GATEWAY_PARAMS = {
     MERCHANT_ID: "2000132",
     HASH_KEY: "ejCk326UnaZWKisg",
-    HASH_IV: "q9jcZX8Ib9LM8wYk",
-    DEVELOPMENT: true
+    HASH_IV: "q9jcZX8Ib9LM8wYk"
 };
 function getEnvironmentVariableOrRaise(name) {
     const result = process.env[name];
@@ -28,7 +27,6 @@ class InvoiceGateway {
     static genericRequest(endpoint, payload, args = {}) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
             const ts = Math.floor(Date.now() / 1000);
-            const id = uuid_1.v4();
             const { MERCHANT_ID, HOST } = InvoiceGateway.normalizeArgs(args);
             const mergedPayload = Object.assign(Object.assign({}, payload), { MERCHANT_ID });
             const { data: { Data } } = yield axios_1.default({
@@ -38,7 +36,6 @@ class InvoiceGateway {
                     MerchantID: MERCHANT_ID,
                     RqHeader: {
                         Timestamp: ts,
-                        RqId: id,
                         Revision: "3.0.0"
                     },
                     Data: InvoiceGateway.encrypt(mergedPayload)
@@ -54,20 +51,20 @@ class InvoiceGateway {
      * Fetch invoice gateway configuration from environment variables or use staging gateway by default.
      */
     static normalizeArgs(args = {}) {
-        var _a, _b, _c, _d, _e;
-        const development = (_a = args.DEVELOPMENT) !== null && _a !== void 0 ? _a : JSON.parse((_b = process.env.ECPAY_INVOICE_STAGING) !== null && _b !== void 0 ? _b : "true");
+        var _a, _b, _c, _d;
+        const development = JSON.parse((_a = process.env.ECPAY_INVOICE_STAGING) !== null && _a !== void 0 ? _a : "true");
         const HOST = development
             ? "https://einvoice-stage.ecpay.com.tw/B2CInvoice"
             : "https://einvoice.ecpay.com.tw/B2CInvoice";
         const MERCHANT_ID = development
             ? STAGING_GATEWAY_PARAMS.MERCHANT_ID
-            : (_c = args.MERCHANT_ID) !== null && _c !== void 0 ? _c : getEnvironmentVariableOrRaise("ECPAY_INVOICE_MERCHANT_ID");
+            : (_b = args.MERCHANT_ID) !== null && _b !== void 0 ? _b : getEnvironmentVariableOrRaise("ECPAY_INVOICE_MERCHANT_ID");
         const HASH_KEY = development
             ? STAGING_GATEWAY_PARAMS.HASH_KEY
-            : (_d = args.HASH_KEY) !== null && _d !== void 0 ? _d : getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_KEY");
+            : (_c = args.HASH_KEY) !== null && _c !== void 0 ? _c : getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_KEY");
         const HASH_IV = development
             ? STAGING_GATEWAY_PARAMS.HASH_IV
-            : (_e = args.HASH_IV) !== null && _e !== void 0 ? _e : getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_IV");
+            : (_d = args.HASH_IV) !== null && _d !== void 0 ? _d : getEnvironmentVariableOrRaise("ECPAY_INVOICE_HASH_IV");
         return {
             HOST,
             MERCHANT_ID,

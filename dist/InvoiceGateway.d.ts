@@ -4,7 +4,6 @@ interface InvoiceGatewayConstructorOptions {
     MERCHANT_ID: string;
     HASH_KEY: string;
     HASH_IV: string;
-    DEVELOPMENT?: boolean;
 }
 export declare class InvoiceGateway {
     HOST: string;
