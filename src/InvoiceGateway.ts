@@ -30,14 +30,12 @@ interface InvoiceGatewayConstructorOptions {
   MERCHANT_ID: string;
   HASH_KEY: string;
   HASH_IV: string;
-  DEVELOPMENT?: boolean;
 }
 
 const STAGING_GATEWAY_PARAMS: InvoiceGatewayConstructorOptions = {
   MERCHANT_ID: "2000132",
   HASH_KEY: "ejCk326UnaZWKisg",
-  HASH_IV: "q9jcZX8Ib9LM8wYk",
-  DEVELOPMENT: true
+  HASH_IV: "q9jcZX8Ib9LM8wYk"
 };
 
 function getEnvironmentVariableOrRaise(name: string): string | never {
@@ -61,7 +59,6 @@ export class InvoiceGateway {
 
   static async genericRequest(endpoint: string, payload: any, args: Partial<InvoiceGatewayConstructorOptions> = {}) {
     const ts = Math.floor(Date.now() / 1000);
-    const id = uuid();
     const { MERCHANT_ID, HOST } = InvoiceGateway.normalizeArgs(args);
     const mergedPayload = {
       ...payload,
@@ -76,7 +73,6 @@ export class InvoiceGateway {
         MerchantID: MERCHANT_ID,
         RqHeader: {
           Timestamp: ts,
-          RqId: id,
           Revision: "3.0.0"
         },
         Data: InvoiceGateway.encrypt(mergedPayload)
@@ -93,7 +89,7 @@ export class InvoiceGateway {
    * Fetch invoice gateway configuration from environment variables or use staging gateway by default.
    */
   static normalizeArgs(args: Partial<InvoiceGatewayConstructorOptions> = {}) {
-    const development = args.DEVELOPMENT ?? JSON.parse(process.env.ECPAY_INVOICE_STAGING ?? "true");
+    const development = JSON.parse(process.env.ECPAY_INVOICE_STAGING ?? "true");
     const HOST = development
       ? "https://einvoice-stage.ecpay.com.tw/B2CInvoice"
       : "https://einvoice.ecpay.com.tw/B2CInvoice";
