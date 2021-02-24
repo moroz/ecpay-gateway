@@ -53,8 +53,10 @@ export class InvoiceGateway {
   HASH_IV: string;
 
   constructor(args: Partial<InvoiceGatewayConstructorOptions> = {}) {
-    const opts = InvoiceGateway.normalizeArgs(args);
-    Object.assign(this, opts);
+    const { MERCHANT_ID, HASH_IV, HASH_KEY } = InvoiceGateway.normalizeArgs(args);
+    this.MERCHANT_ID = MERCHANT_ID;
+    this.HASH_KEY = HASH_KEY;
+    this.HASH_IV = HASH_IV;
   }
 
   static async genericRequest(endpoint: string, payload: any, args: Partial<InvoiceGatewayConstructorOptions> = {}) {
@@ -75,7 +77,7 @@ export class InvoiceGateway {
           Timestamp: ts,
           Revision: "3.0.0"
         },
-        Data: InvoiceGateway.encrypt(mergedPayload)
+        Data: InvoiceGateway.encrypt(mergedPayload, args)
       }
     });
     return Data;
@@ -111,8 +113,8 @@ export class InvoiceGateway {
     };
   }
 
-  static encrypt(data: any): string {
-    const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs();
+  static encrypt(data: any, args?: Partial<InvoiceGatewayConstructorOptions>): string {
+    const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs(args);
     const encodedData = encodeURIComponent(JSON.stringify(data));
     const cipher = crypto.createCipheriv("aes-128-cbc", HASH_KEY!, HASH_IV!);
     cipher.setAutoPadding(true);
@@ -128,8 +130,8 @@ export class InvoiceGateway {
     return [cipher.update(encodedData, "utf8", "base64"), cipher.final("base64")].join("");
   }
 
-  static decrypt(encryptedData: string): any {
-    const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs();
+  static decrypt(encryptedData: string, args?: Partial<InvoiceGatewayConstructorOptions>): any {
+    const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs(args);
     const decipher = crypto.createDecipheriv("aes-128-cbc", HASH_KEY, HASH_IV);
 
     return JSON.parse(
@@ -215,7 +217,7 @@ export class InvoiceGateway {
       },
       args
     );
-    const { RtnCode, IsExist } = InvoiceGateway.decrypt(data);
+    const { RtnCode, IsExist } = InvoiceGateway.decrypt(data, args);
 
     switch (RtnCode) {
       case 1:

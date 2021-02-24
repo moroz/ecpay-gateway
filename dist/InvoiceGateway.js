@@ -21,8 +21,10 @@ function getEnvironmentVariableOrRaise(name) {
 }
 class InvoiceGateway {
     constructor(args = {}) {
-        const opts = InvoiceGateway.normalizeArgs(args);
-        Object.assign(this, opts);
+        const { MERCHANT_ID, HASH_IV, HASH_KEY } = InvoiceGateway.normalizeArgs(args);
+        this.MERCHANT_ID = MERCHANT_ID;
+        this.HASH_KEY = HASH_KEY;
+        this.HASH_IV = HASH_IV;
     }
     static genericRequest(endpoint, payload, args = {}) {
         return tslib_1.__awaiter(this, void 0, void 0, function* () {
@@ -38,7 +40,7 @@ class InvoiceGateway {
                         Timestamp: ts,
                         Revision: "3.0.0"
                     },
-                    Data: InvoiceGateway.encrypt(mergedPayload)
+                    Data: InvoiceGateway.encrypt(mergedPayload, args)
                 }
             });
             return Data;
@@ -72,8 +74,8 @@ class InvoiceGateway {
             HASH_KEY
         };
     }
-    static encrypt(data) {
-        const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs();
+    static encrypt(data, args) {
+        const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs(args);
         const encodedData = encodeURIComponent(JSON.stringify(data));
         const cipher = crypto_1.default.createCipheriv("aes-128-cbc", HASH_KEY, HASH_IV);
         cipher.setAutoPadding(true);
@@ -85,8 +87,8 @@ class InvoiceGateway {
         cipher.setAutoPadding(true);
         return [cipher.update(encodedData, "utf8", "base64"), cipher.final("base64")].join("");
     }
-    static decrypt(encryptedData) {
-        const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs();
+    static decrypt(encryptedData, args) {
+        const { HASH_KEY, HASH_IV } = InvoiceGateway.normalizeArgs(args);
         const decipher = crypto_1.default.createDecipheriv("aes-128-cbc", HASH_KEY, HASH_IV);
         return JSON.parse(decodeURIComponent([decipher.update(encryptedData, "base64", "utf8"), decipher.final("utf8")].join("")));
     }
@@ -151,7 +153,7 @@ class InvoiceGateway {
             const data = yield InvoiceGateway.genericRequest("/CheckBarcode", {
                 BarCode
             }, args);
-            const { RtnCode, IsExist } = InvoiceGateway.decrypt(data);
+            const { RtnCode, IsExist } = InvoiceGateway.decrypt(data, args);
             switch (RtnCode) {
                 case 1:
                     if (IsExist === "Y")

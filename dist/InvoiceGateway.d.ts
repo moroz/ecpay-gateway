@@ -19,9 +19,9 @@ export declare class InvoiceGateway {
         HASH_IV: string;
         HASH_KEY: string;
     };
-    static encrypt(data: any): string;
+    static encrypt(data: any, args?: Partial<InvoiceGatewayConstructorOptions>): string;
     encrypt(data: any): string;
-    static decrypt(encryptedData: string): any;
+    static decrypt(encryptedData: string, args?: Partial<InvoiceGatewayConstructorOptions>): any;
     decrypt(encryptedData: string): any;
     getValidCarrierNumber(type: InvoiceCarrierType, number: string | null | undefined): Promise<string> | string;
     getValidLoveCode(loveCode: string | null | undefined): Promise<string>;
